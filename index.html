@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+  </head>
+  <body>
+    <input type="file" id="fileInput" />
+    <canvas id="canvas"></canvas>
+    <script>
+      // window.onload = getExif;
+
+      function getExif(image, callback) {
+        // return EXIF.getData(image, function () {
+        //   var make = EXIF.getTag(this, "Make");
+        //   var model = EXIF.getTag(this, "Model");
+        //   console.log({ make, model });
+        // });
+
+        EXIF.getData(image, function () {
+          const exifData = EXIF.getAllTags(this);
+          callback(exifData); // Panggil callback dan kirim datanya
+        });
+      }
+      const fileInput = document.getElementById("fileInput");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+
+      fileInput.addEventListener("change", async (event) => {
+        const file = event.target.files[0];
+      
+        if (file) {
+          const img = new Image();
+          const url = URL.createObjectURL(file);
+          img.src = url;
+
+          img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            getExif(img, (exif) => {
+              console.log("EXIF Data:", exif);
+              ctx.font = "20px Arial";
+              ctx.fillStyle = "white";
+              ctx.fillText("Camera: Canon", 20, 30);
+              ctx.fillText(
+                `Focal Length: ${Math.round(exif.FocalLength)} mm`,
+                20,
+                60
+              );
+              ctx.fillText(
+                `Aperture: F${Math.round(exif.FNumber)}`,
+                20,
+                90
+              );
+              ctx.fillText(
+                `Shutter Speed: 1/${1 / exif.ExposureTime}`,
+                20,
+                120
+              );
+
+              ctx.fillText(`ISO: ${Math.round(exif.ISOSpeedRatings)}`, 20, 150);
+              ctx.fillText(`Date: ${exif.DateTimeOriginal}`, 20, 180);
+            });
+          };
+        }
+      });
+    </script>
+  </body>
+</html>
