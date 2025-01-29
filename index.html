@@ -6,22 +6,16 @@
     <title>Document</title>
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
   </head>
-  <body>
+  <body style="display: flex; flex-direction: column">
     <input type="file" id="fileInput" />
     <canvas id="canvas"></canvas>
     <script>
       // window.onload = getExif;
 
       function getExif(image, callback) {
-        // return EXIF.getData(image, function () {
-        //   var make = EXIF.getTag(this, "Make");
-        //   var model = EXIF.getTag(this, "Model");
-        //   console.log({ make, model });
-        // });
-
         EXIF.getData(image, function () {
           const exifData = EXIF.getAllTags(this);
-          callback(exifData); // Panggil callback dan kirim datanya
+          callback(exifData);
         });
       }
       const fileInput = document.getElementById("fileInput");
@@ -30,18 +24,50 @@
 
       fileInput.addEventListener("change", async (event) => {
         const file = event.target.files[0];
-      
+
         if (file) {
           const img = new Image();
           const url = URL.createObjectURL(file);
           img.src = url;
 
           img.onload = () => {
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
+            const dpr = window.devicePixelRatio || 1;
+            //get size canvas nya instead of pake viewport width
+            const rect = canvas.getBoundingClientRect();
+            const canvasRatio = rect.width / rect.height;
+            //set canvas width sebesar canvas width / 2 alias 50% dari viewport
+            let canvasWidth = rect.width * 0.5 * dpr;
+            //set canvas height sesuai dengan aspect ratio
+            let canvasHeight = canvasWidth / canvasRatio;
+
+            //prevent gambar dari blur
+            ctx.scale(dpr, dpr); //scale canvas nya sesuai dengan device pixel ratio
+            ctx.webkitImageSmoothingEnabled = false;
+            ctx.mozImageSmoothingEnabled = false;
+            ctx.imageSmoothingEnabled = false;
+            //set canvas width dan height
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+
+            //bikin background hitam
+            ctx.fillStyle = "black";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            //set width & height buat image
+            //aspect ratio buat nyari rasio gambar biar presisi
+            const imgRatio = img.width / img.height;
+            //bikin width gambar setengah dari canvas width
+            const newWidth = canvas.width * 0.5;
+            //bikin height gambar sesuai dengan img ratio
+            const newHeight = newWidth / imgRatio;
+
+            // set koor x dan y biar gambar di tengah
+            const x = (canvas.width - newWidth) / 2;
+            const y = (canvas.height - newHeight) / 2;
+            //bikin gambarny
+            ctx.drawImage(img, x, y, newWidth, newHeight);
+
             getExif(img, (exif) => {
-              console.log("EXIF Data:", exif);
               ctx.font = "20px Arial";
               ctx.fillStyle = "white";
               ctx.fillText("Camera: Canon", 20, 30);
@@ -50,11 +76,7 @@
                 20,
                 60
               );
-              ctx.fillText(
-                `Aperture: F${Math.round(exif.FNumber)}`,
-                20,
-                90
-              );
+              ctx.fillText(`Aperture: F${Math.round(exif.FNumber)}`, 20, 90);
               ctx.fillText(
                 `Shutter Speed: 1/${1 / exif.ExposureTime}`,
                 20,
