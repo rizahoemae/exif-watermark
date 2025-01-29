@@ -5,23 +5,43 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+    <script src="index.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit&display=swap"
+      rel="stylesheet"
+    />
   </head>
-  <body style="display: flex; flex-direction: column">
+  <body
+    style="
+      display: flex;
+      flex-direction: column;
+      background-color: #f7f7f7;
+      align-items: center;
+    "
+  >
     <input type="file" id="fileInput" />
-    <canvas id="canvas"></canvas>
-    <script>
+    <canvas id="canvas" style="width: 60vw"></canvas>
+    <script type="module">
       // window.onload = getExif;
+      import Logo from "./index.js";
 
-      function getExif(image, callback) {
+      const getExif = (image, callback) => {
         EXIF.getData(image, function () {
           const exifData = EXIF.getAllTags(this);
           callback(exifData);
         });
-      }
+      };
       const fileInput = document.getElementById("fileInput");
       const canvas = document.getElementById("canvas");
       const ctx = canvas.getContext("2d");
 
+      const formattedDate = (val) => {
+        const [date, time] = val.split(" ");
+        const [year, month, day] = date.split(":");
+        return `${day}-${month}-${year} ${time}`;
+      };
       fileInput.addEventListener("change", async (event) => {
         const file = event.target.files[0];
 
@@ -32,13 +52,14 @@
 
           img.onload = () => {
             const dpr = window.devicePixelRatio || 1;
+            const imgRatio = img.width / img.height;
+
             //get size canvas nya instead of pake viewport width
             const rect = canvas.getBoundingClientRect();
-            const canvasRatio = rect.width / rect.height;
             //set canvas width sebesar canvas width / 2 alias 50% dari viewport
-            let canvasWidth = rect.width * 0.5 * dpr;
+            let canvasWidth = rect.width * dpr;
             //set canvas height sesuai dengan aspect ratio
-            let canvasHeight = canvasWidth / canvasRatio;
+            let canvasHeight = canvasWidth / imgRatio;
 
             //prevent gambar dari blur
             ctx.scale(dpr, dpr); //scale canvas nya sesuai dengan device pixel ratio
@@ -46,48 +67,87 @@
             ctx.mozImageSmoothingEnabled = false;
             ctx.imageSmoothingEnabled = false;
             //set canvas width dan height
+            let additionalHeight;
+
+            //kalo doi landscape, add heightnya 100. kalo portrait, add heightnya 200
+            if (canvasHeight < canvasWidth) {
+              additionalHeight = 100;
+            } else {
+              additionalHeight = 200;
+            }
             canvas.width = canvasWidth;
-            canvas.height = canvasHeight;
+            canvas.height = canvasHeight + additionalHeight;
 
             //bikin background hitam
-            ctx.fillStyle = "black";
+            ctx.fillStyle = "white";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             //set width & height buat image
             //aspect ratio buat nyari rasio gambar biar presisi
-            const imgRatio = img.width / img.height;
             //bikin width gambar setengah dari canvas width
-            const newWidth = canvas.width * 0.5;
+            const newWidth = canvasWidth;
             //bikin height gambar sesuai dengan img ratio
             const newHeight = newWidth / imgRatio;
 
-            // set koor x dan y biar gambar di tengah
-            const x = (canvas.width - newWidth) / 2;
-            const y = (canvas.height - newHeight) / 2;
             //bikin gambarny
-            ctx.drawImage(img, x, y, newWidth, newHeight);
+            ctx.drawImage(img, 0, 0, newWidth, newHeight);
+            const getLogo = (val, callback) => {
+              const logo = new Image();
+              logo.src = `logos/${Logo[val.toLowerCase()]}`;
+              logo.onload = () => {
+                callback(logo);
+              };
+            };
+            const center = canvas.height - additionalHeight / 2 + 10;
+            var currentX = 20;
+            var currentY = center;
+            var fontSize = 40;
+            const padding = 20;
+            const drawText = (text) => {
+              ctx.fillText(text, currentX, currentY);
+              currentX += ctx.measureText(text).width + padding;
+            };
 
             getExif(img, (exif) => {
-              ctx.font = "20px Arial";
-              ctx.fillStyle = "white";
-              ctx.fillText("Camera: Canon", 20, 30);
-              ctx.fillText(
-                `Focal Length: ${Math.round(exif.FocalLength)} mm`,
-                20,
-                60
-              );
-              ctx.fillText(`Aperture: F${Math.round(exif.FNumber)}`, 20, 90);
-              ctx.fillText(
-                `Shutter Speed: 1/${1 / exif.ExposureTime}`,
-                20,
-                120
-              );
+              ctx.font = `${fontSize}px Arial`;
+              ctx.fillStyle = "black";
+              drawText(exif.Make);
 
-              ctx.fillText(`ISO: ${Math.round(exif.ISOSpeedRatings)}`, 20, 150);
-              ctx.fillText(`Date: ${exif.DateTimeOriginal}`, 20, 180);
+              getLogo(exif.Make, (logo) => {
+                currentX += canvas.width / 2 + 100;
+
+                ctx.drawImage(
+                  logo,
+                  currentX,
+                  currentY - logo.height / 2 - 10,
+                  logo.width,
+                  logo.height
+                );
+
+                ctx.font = `${fontSize / 2}px Arial`;
+                currentX += logo.width + padding + 20;
+
+                drawText(`${Math.round(exif.FocalLength)}mm`);
+                drawText(`f/${Math.round(exif.FNumber)}`);
+                drawText(`1/${1 / exif.ExposureTime}`);
+                drawText(`ISO${Math.round(exif.ISOSpeedRatings)}`);
+                drawText(`${exif.DateTimeOriginal}`);
+              });
             });
           };
         }
+        const buttonDownload = document.createElement("button");
+        buttonDownload.setAttribute("id", "download-btn");
+        buttonDownload.innerText = "Download";
+
+        document.body.append(buttonDownload);
+        buttonDownload.addEventListener("click", () => {
+          const dataUrl = canvas.toDataURL("image/png");
+          const a = document.createElement("a");
+          a.href = dataUrl;
+          a.download = "canvas-image.png";
+          a.click();
+        });
       });
     </script>
   </body>
