@@ -22,7 +22,7 @@
     "
   >
     <input type="file" id="fileInput" />
-    <canvas id="canvas" style="width: 60vw"></canvas>
+    <canvas id="canvas"></canvas>
     <script type="module">
       // window.onload = getExif;
       import Logo from "./index.js";
@@ -42,6 +42,40 @@
         const [year, month, day] = date.split(":");
         return `${day}-${month}-${year} ${time}`;
       };
+
+      const PIXEL_RATIO = (function () {
+        const dpr = window.devicePixelRatio || 1;
+        const bsr =
+          ctx.webkitBackingStorePixelRatio ||
+          ctx.mozBackingStorePixelRatio ||
+          ctx.msBackingStorePixelRatio ||
+          ctx.oBackingStorePixelRatio ||
+          ctx.backingStorePixelRatio ||
+          1;
+
+        return dpr / bsr;
+      })();
+      const createHiDPICanvas = (w, h, ratio) => {
+        if (!ratio) {
+          ratio = PIXEL_RATIO;
+        }
+        canvas.width = w * ratio;
+        canvas.height = h * ratio;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      };
+      //get size canvas nya instead of pake viewport width
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      //set canvas width sebesar canvas width / 2 alias 50% dari viewport
+      let canvasWidth = rect.width * dpr;
+      //set canvas height sesuai dengan aspect ratio
+      let additionalHeight = 50;
+      //scale canvas nya sesuai dengan device pixel ratio
+      ctx.scale(dpr, dpr);
+
+
       fileInput.addEventListener("change", async (event) => {
         const file = event.target.files[0];
 
@@ -51,32 +85,20 @@
           img.src = url;
 
           img.onload = () => {
-            const dpr = window.devicePixelRatio || 1;
             const imgRatio = img.width / img.height;
 
-            //get size canvas nya instead of pake viewport width
-            const rect = canvas.getBoundingClientRect();
-            //set canvas width sebesar canvas width / 2 alias 50% dari viewport
-            let canvasWidth = rect.width * dpr;
-            //set canvas height sesuai dengan aspect ratio
-            let canvasHeight = canvasWidth / imgRatio;
-
             //prevent gambar dari blur
-            ctx.scale(dpr, dpr); //scale canvas nya sesuai dengan device pixel ratio
             ctx.webkitImageSmoothingEnabled = false;
             ctx.mozImageSmoothingEnabled = false;
             ctx.imageSmoothingEnabled = false;
             //set canvas width dan height
-            let additionalHeight;
+            var fontSize = 20;
 
-            //kalo doi landscape, add heightnya 100. kalo portrait, add heightnya 200
-            if (canvasHeight < canvasWidth) {
-              additionalHeight = 100;
-            } else {
-              additionalHeight = 200;
-            }
-            canvas.width = canvasWidth;
-            canvas.height = canvasHeight + additionalHeight;
+            let canvasHeight = canvasWidth / imgRatio;
+            createHiDPICanvas(canvasWidth, canvasHeight + additionalHeight);
+
+            // canvas.width = canvasWidth;
+            // canvas.height = canvasHeight + additionalHeight;
 
             //bikin background hitam
             ctx.fillStyle = "white";
@@ -93,16 +115,17 @@
             ctx.drawImage(img, 0, 0, newWidth, newHeight);
             const getLogo = (val, callback) => {
               const logo = new Image();
-              logo.src = `logos/${Logo[val.toLowerCase()]}`;
+              // logo.src = `logos/${Logo[val.toLowerCase()]}`;
+              logo.src = `logos/fujifilm.png`;
+
               logo.onload = () => {
                 callback(logo);
               };
             };
-            const center = canvas.height - additionalHeight / 2 + 10;
+            const center = canvasHeight + additionalHeight - 20;
             var currentX = 20;
             var currentY = center;
-            var fontSize = 40;
-            const padding = 20;
+            const padding = 10;
             const drawText = (text) => {
               ctx.fillText(text, currentX, currentY);
               currentX += ctx.measureText(text).width + padding;
@@ -114,18 +137,25 @@
               drawText(exif.Make);
 
               getLogo(exif.Make, (logo) => {
-                currentX += canvas.width / 2 + 100;
-
+                //kalo doi portrait, resize logo nya
+                currentX = canvasWidth / 2;
+                logo.width = logo.width * 0.5;
+                logo.height = logo.height * 0.5;
+                // if (canvas.width < canvas.height) {
+                //   currentX = canvasWidth / 2;
+                // } else {
+                //   currentX = canvasWidth / 2;
+                // }
                 ctx.drawImage(
                   logo,
                   currentX,
-                  currentY - logo.height / 2 - 10,
+                  currentY - logo.height / 2 - 2,
                   logo.width,
                   logo.height
                 );
 
                 ctx.font = `${fontSize / 2}px Arial`;
-                currentX += logo.width + padding + 20;
+                currentX += logo.width + padding;
 
                 drawText(`${Math.round(exif.FocalLength)}mm`);
                 drawText(`f/${Math.round(exif.FNumber)}`);
@@ -135,6 +165,10 @@
               });
             });
           };
+        }
+        const findBtn = document.getElementById("download-btn");
+        if (findBtn) {
+          findBtn.remove();
         }
         const buttonDownload = document.createElement("button");
         buttonDownload.setAttribute("id", "download-btn");
