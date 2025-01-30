@@ -115,8 +115,8 @@
             ctx.drawImage(img, 0, 0, newWidth, newHeight);
             const getLogo = (val, callback) => {
               const logo = new Image();
-              // logo.src = `logos/${Logo[val.toLowerCase()]}`;
-              logo.src = `logos/fujifilm.png`;
+              logo.src = `logos/${Logo[val.toLowerCase()]}`;
+              // logo.src = `logos/fujifilm.png`;
 
               logo.onload = () => {
                 callback(logo);
